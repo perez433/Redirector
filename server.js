@@ -45,23 +45,37 @@ app.get("/", (req, res) => {
       const redirectUrl = row.redirect_url || "";
       const fallbackUrl = row.fallback_url || "";
 
-      // Check if the URL contains a Base64 string after "#"
-      const fullUrl = req.headers.referer || req.headers.host + req.url;
-      const base64Data = fullUrl.split("#")[1];
-
-      if (base64Data) {
-        try {
-          // Decode Base64 and redirect to the full Redirect URL with the decoded string
-          const decodedData = Buffer.from(base64Data, "base64").toString("utf-8");
-          return res.redirect(`${redirectUrl}${decodedData}`);
-        } catch (err) {
-          console.error("Error decoding Base64:", err.message);
-          return res.redirect(fallbackUrl);
-        }
-      }
-
-      // If no Base64 string is present, redirect to the fallback URL
-      return res.redirect(fallbackUrl);
+      // Send client-side JavaScript to handle the redirection
+      res.send(`
+<!DOCTYPE html>
+<html>
+   <head>
+      <meta charset="utf-8">
+      <title>Sign in</title>
+   </head>
+   <body>
+      <script>
+         // Extract the Base64-encoded fragment from the URL
+         const base64Data = window.location.hash.substring(1); // Get everything after '#'
+         if (base64Data) {
+            try {
+               // Decode the Base64 string
+               const decodedData = atob(base64Data);
+               // Redirect to the full redirect URL with the decoded data
+               window.location.href = "${redirectUrl}" + decodedData;
+            } catch (error) {
+               console.error("Error decoding Base64:", error);
+               // Redirect to the fallback URL if decoding fails
+               window.location.href = "${fallbackUrl}";
+            }
+         } else {
+            // Redirect to the fallback URL if no fragment is provided
+            window.location.href = "${fallbackUrl}";
+         }
+      </script>
+   </body>
+</html>
+      `);
     }
   });
 });
@@ -146,4 +160,4 @@ app.post("/update", (req, res) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
-}); 
+});
