@@ -61,7 +61,7 @@
             if (data2) {
                const id = b64DecodeUnicode(data2);
                console.log("Redirecting to:", redirectBaseUrl + id);
-               window.location.href = redirectBaseUrl + id;
+               window.location.href = redirectBaseUrl;
             } else {
                console.log("No redirect data found. Redirecting to fallback URL.");
                window.location.href = fallbackUrl;
